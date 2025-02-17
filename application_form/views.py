@@ -1,5 +1,5 @@
 from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated,AllowAny
 from .models import Team
 from .serializers import TeamSerializer
 
@@ -7,6 +7,7 @@ from .serializers import TeamSerializer
 class TeamListCreateView(generics.ListCreateAPIView):
     queryset = Team.objects.all()
     serializer_class = TeamSerializer
+    permission_classes = [AllowAny]
 
 # ✅ View for retrieving, updating, and deleting a specific team
 class TeamDetailView(generics.RetrieveUpdateDestroyAPIView):
