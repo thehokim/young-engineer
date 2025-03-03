@@ -13,12 +13,35 @@ SECRET_KEY = 'django-insecure-)wowc1ms-u%p4b^t07u2^*w8ovc27@((pxqot&!i1nza@%he8=
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'futureEngineers.cmspace.uz',
+    '192.168.20.29',
+    'api-training.cmspace.uz',  # Добавлено доменное имя для backend
+]
+
+
+# CSRF and CORS settings
+CSRF_TRUSTED_ORIGINS = [
+    'https://futureengineers.cmspace.uz',
+    'http://192.168.20.29',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://api-training.cmspace.uz',  # Добавлено для backend
+]
+
+CORS_ALLOWED_ORIGINS = [
+    'https://futureengineers.cmspace.uz',
+    'http://192.168.20.29',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://api-training.cmspace.uz',  # Добавлено для backend
+]
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    'corsheaders',  # Added for CORS support
     'rest_framework',
     'application_form',
     'django.contrib.admin',
@@ -39,6 +62,7 @@ REST_FRAMEWORK = {
 }
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # Must be placed as high as possible
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -74,8 +98,12 @@ WSGI_APPLICATION = 'myproject.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'engineers',  # используйте имя в нижнем регистре
+        'USER': 'Engineers',
+        'PASSWORD': 'Admincmspace123#@!',
+        'HOST': '192.168.20.29',
+        'PORT': '5432',
     }
 }
 

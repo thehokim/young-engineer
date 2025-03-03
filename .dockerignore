@@ -1,0 +1,28 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment directories
+venv/
+env/
+
+# Django stuff:
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# Environment variables file
+.env
+
+# Git files
+.git
+.gitignore
+
+# Other files you might want to ignore
+node_modules/
+dist/
+build/

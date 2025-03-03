@@ -1,10 +1,41 @@
 import requests
+from .models import BotSettings
 
-# Замените токен на новый, если предыдущий уже использовался в открытом виде!
-TELEGRAM_BOT_TOKEN = "8052262027:AAGdM8LVE3tHX9jt8OAyiDMFqUoGRHmdCLc"
-CHAT_ID = "5008138452"  # Проверьте, что это правильный chat_id
+def get_bot_settings():
+    settings = BotSettings.objects.first()  # Получаем первую запись
+    if settings:
+        return settings.chat_id, settings.bot_token
+    return None, None
 
-def send_telegram_message(team_data):  # ✅ Изменено название аргумента, чтобы избежать конфликта
+def upload_video_to_telegram(video_file):
+    """ Загружает видео в Telegram и возвращает ссылку """
+    chat_id, bot_token = get_bot_settings()
+    
+    if not chat_id or not bot_token:
+        print("❌ Ошибка: Не настроен Chat ID или Bot Token!")
+        return None
+
+    url_video = f"https://api.telegram.org/bot{bot_token}/sendVideo"
+    files = {'video': video_file}
+    data = {"chat_id": chat_id}
+
+    response = requests.post(url_video, data=data, files=files)
+
+    if response.status_code == 200:
+        video_info = response.json()
+        file_id = video_info["result"]["video"]["file_id"]
+        return f"https://t.me/{chat_id}/{file_id}"  # ✅ Генерируем ссылку на видео
+    else:
+        print(f"❌ Ошибка загрузки видео: {response.status_code} - {response.text}")
+        return None
+
+def send_telegram_message(team_data, video_url=None):
+    chat_id, bot_token = get_bot_settings()
+    
+    if not chat_id or not bot_token:
+        print("❌ Ошибка: Не настроен Chat ID или Bot Token!")
+        return
+
     text = f"""
 📩 *Новая заявка*  
 🏆 *Команда:* `{team_data['name']}`  
@@ -25,48 +56,21 @@ def send_telegram_message(team_data):  # ✅ Изменено название �
 🔎 *Доп. информация:* `{team_data['project']['additional_info']}`  
 """
 
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {  # ✅ Изменено название переменной
-        "chat_id": CHAT_ID,
-        "text": text,
-        "parse_mode": "Markdown"
-    }
-    response = requests.post(url, data=payload)  # ✅ Теперь нет конфликта с `data`
-    
+    # ✅ Отправляем текст
+    url_text = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    response = requests.post(url_text, data={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"})
+
     if response.status_code == 200:
         print("✅ Сообщение успешно отправлено!")
     else:
         print(f"❌ Ошибка {response.status_code}: {response.text}")
 
-# Тестовая отправка
-team_data = {  # ✅ Изменено название переменной
-    "name": "кцуеукеукенукн",
-    "city": "Ташкент",
-    "institution": "Ташкентский университет информационных технологий",
-    "contact_info": "techpioneers@example.com",
-    "members": [
-        {
-            "full_name": "Алексей Смирнов",
-            "birth_date": "1999-07-12",
-            "role": "Backend-разработчик"
-        },
-        {
-            "full_name": "Мария Коваль",
-            "birth_date": "2001-02-25",
-            "role": "Frontend-разработчик"
-        },
-        {
-            "full_name": "Олег Назаров",
-            "birth_date": "2000-11-30",
-            "role": "Дизайнер UI/UX"
-        }
-    ],
-    "project": {
-        "name": "рапрапрпр",
-        "description": "Система умного города с интеграцией ИИ для оптимизации трафика и управления ресурсами.",
-        "technical_specs": "Python, Django, React, PostgreSQL, AI/ML",
-        "additional_info": "Проект включает анализ данных и интеграцию IoT-устройств"
-    }
-}
+    # ✅ Если есть ссылка на видео, отправляем её в чат
+    if video_url:
+        url_video_msg = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        response_video = requests.post(url_video_msg, data={"chat_id": chat_id, "text": f"🎥 Видео: {video_url}", "parse_mode": "Markdown"})
 
-send_telegram_message(team_data)  # ✅ Передаём исправленную переменную
+        if response_video.status_code == 200:
+            print("✅ Ссылка на видео успешно отправлена!")
+        else:
+            print(f"❌ Ошибка при отправке ссылки на видео: {response_video.status_code} - {response_video.text}")

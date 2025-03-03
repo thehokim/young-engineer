@@ -5,6 +5,7 @@ class Team(models.Model):
     city = models.CharField(max_length=255, verbose_name="Город/Регион")
     institution = models.CharField(max_length=255, verbose_name="Учебное заведение")
     contact_info = models.TextField(verbose_name="Контактная информация")
+    video_url = models.URLField(verbose_name="Ссылка на видео", blank=True, null=True)  # ✅ Храним только ссылку
 
     def __str__(self):
         return self.name
@@ -27,3 +28,14 @@ class Project(models.Model):
 
     def __str__(self):
         return self.name
+    
+class BotSettings(models.Model):
+    chat_id = models.CharField(max_length=50, verbose_name="Telegram Chat ID")
+    bot_token = models.CharField(max_length=100, verbose_name="Telegram Bot Token")
+
+    def __str__(self):
+        return f"Настройки бота (Chat ID: {self.chat_id})"
+
+    class Meta:
+        verbose_name = "Настройки бота"
+        verbose_name_plural = "Настройки бота"
