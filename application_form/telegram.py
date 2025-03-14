@@ -1,76 +1,93 @@
 import requests
-from .models import BotSettings
+from django.core.files.uploadedfile import UploadedFile
 
-def get_bot_settings():
-    settings = BotSettings.objects.first()  # Получаем первую запись
-    if settings:
-        return settings.chat_id, settings.bot_token
-    return None, None
+BOT_TOKEN = "8052262027:AAGD..."  # Укороченный токен
+CHAT_IDS = [5008138452, 165378299, 68177994, 286042360]
 
-def upload_video_to_telegram(video_file):
-    """ Загружает видео в Telegram и возвращает ссылку """
-    chat_id, bot_token = get_bot_settings()
-    
-    if not chat_id or not bot_token:
-        print("❌ Ошибка: Не настроен Chat ID или Bot Token!")
+def upload_file_to_telegram(file: UploadedFile):
+    """Uploads a file to Telegram and returns the file_id."""
+    if not file:
+        print("❌ Файл отсутствует")
         return None
 
-    url_video = f"https://api.telegram.org/bot{bot_token}/sendVideo"
-    files = {'video': video_file}
-    data = {"chat_id": chat_id}
+    file_extension = file.name.split(".")[-1].lower()
 
-    response = requests.post(url_video, data=data, files=files)
+    # Определяем, какой метод API использовать
+    file_types = {
+        "photo": ["jpg", "jpeg", "png", "gif", "bmp", "webp"],
+        "video": ["mp4", "mov", "avi", "mkv"],
+        "document": ["pdf", "doc", "docx", "xls", "xlsx", "txt"],
+    }
+
+    file_type = next((ftype for ftype, exts in file_types.items() if file_extension in exts), None)
+
+    if not file_type:
+        print(f"❌ Неподдерживаемый формат файла: {file_extension}")
+        return None
+
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/send{file_type.capitalize()}"
+    first_chat_id = CHAT_IDS[0]
+    files = {file_type: (file.name, file.file)}
+    data = {"chat_id": first_chat_id}
+
+    response = requests.post(url, data=data, files=files)
 
     if response.status_code == 200:
-        video_info = response.json()
-        file_id = video_info["result"]["video"]["file_id"]
-        return f"https://t.me/{chat_id}/{file_id}"  # ✅ Генерируем ссылку на видео
+        file_info = response.json()
+        if not file_info.get("ok"):
+            print(f"❌ Ошибка Telegram API: {file_info}")
+            return None
+
+        file_id = file_info["result"].get("file_id")
+        if not file_id:
+            print(f"❌ Ошибка: Telegram не вернул file_id: {file_info}")
+            return None
+
+        print(f"✅ {file_extension.upper()} файл загружен в чат {first_chat_id}")
+
+        # Рассылка в другие чаты
+        for chat_id in CHAT_IDS[1:]:
+            response = requests.post(url, data={"chat_id": chat_id, file_type: file_id})
+            if response.status_code == 200:
+                print(f"✅ Файл отправлен в чат {chat_id}")
+            else:
+                print(f"❌ Ошибка отправки в чат {chat_id}: {response.status_code} - {response.text}")
+
+        return file_id
     else:
-        print(f"❌ Ошибка загрузки видео: {response.status_code} - {response.text}")
+        print(f"❌ Ошибка загрузки файла в чат {first_chat_id}: {response.status_code} - {response.text}")
         return None
 
-def send_telegram_message(team_data, video_url=None):
-    chat_id, bot_token = get_bot_settings()
-    
-    if not chat_id or not bot_token:
-        print("❌ Ошибка: Не настроен Chat ID или Bot Token!")
-        return
 
+def send_telegram_message(team_data):
+    """Sends team information to Telegram chats."""
     text = f"""
-📩 *Новая заявка*  
-🏆 *Команда:* `{team_data['name']}`  
-🌍 *Город:* `{team_data['city']}`  
-🏫 *Учебное заведение:* `{team_data['institution']}`  
-📧 *Контакт:* `{team_data['contact_info']}`  
+📩 *Новая заявка*
+🏆 *Команда:* `{team_data['name']}`
+🌍 *Город:* `{team_data['city']}`
+🏫 *Учебное заведение:* `{team_data['institution']}`
+📧 *Контакт:* `{team_data['contact_info']}`
 
-👥 *Участники команды:*  
-"""  
-    for member in team_data['members']:
-        text += f"   👤 `{member['full_name']}` - `{member['role']}` (📅 `{member['birth_date']}`)\n"
+👥 *Участники команды:*
+""" + "\n".join(
+        [f"   👤 `{member['full_name']}` - `{member['role']}` (📅 `{member['birth_date']}`)"
+         for member in team_data["members"]]
+    ) + f"""
 
-    text += f"""
-
-💡 *Проект:* `{team_data['project']['name']}`  
-📜 *Описание:* `{team_data['project']['description']}`  
-🛠 *Технологии:* `{team_data['project']['technical_specs']}`  
-🔎 *Доп. информация:* `{team_data['project']['additional_info']}`  
+💡 *Проект:* `{team_data['project']['name']}`
+📜 *Описание:* `{team_data['project']['description']}`
+🛠 *Технологии:* `{team_data['project']['technical_specs']}`
+🔎 *Доп. информация:* `{team_data['project']['additional_info']}`
 """
 
-    # ✅ Отправляем текст
-    url_text = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    response = requests.post(url_text, data={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"})
+    url_text = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
-    if response.status_code == 200:
-        print("✅ Сообщение успешно отправлено!")
-    else:
-        print(f"❌ Ошибка {response.status_code}: {response.text}")
-
-    # ✅ Если есть ссылка на видео, отправляем её в чат
-    if video_url:
-        url_video_msg = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-        response_video = requests.post(url_video_msg, data={"chat_id": chat_id, "text": f"🎥 Видео: {video_url}", "parse_mode": "Markdown"})
-
-        if response_video.status_code == 200:
-            print("✅ Ссылка на видео успешно отправлена!")
+    for chat_id in CHAT_IDS:
+        response = requests.post(
+            url_text,
+            data={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+        )
+        if response.status_code == 200:
+            print(f"✅ Сообщение отправлено в чат {chat_id}")
         else:
-            print(f"❌ Ошибка при отправке ссылки на видео: {response_video.status_code} - {response_video.text}")
+            print(f"❌ Ошибка отправки в чат {chat_id}: {response.status_code} - {response.text}")

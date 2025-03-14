@@ -29,13 +29,3 @@ class Project(models.Model):
     def __str__(self):
         return self.name
     
-class BotSettings(models.Model):
-    chat_id = models.CharField(max_length=50, verbose_name="Telegram Chat ID")
-    bot_token = models.CharField(max_length=100, verbose_name="Telegram Bot Token")
-
-    def __str__(self):
-        return f"Настройки бота (Chat ID: {self.chat_id})"
-
-    class Meta:
-        verbose_name = "Настройки бота"
-        verbose_name_plural = "Настройки бота"
