@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Team, TeamMember, Project
-from .telegram import send_telegram_message, upload_video_to_telegram
+from .telegram import send_telegram_message, upload_file_to_telegram
+import json
 
 class TeamMemberSerializer(serializers.ModelSerializer):
     class Meta:
@@ -13,32 +14,38 @@ class ProjectSerializer(serializers.ModelSerializer):
         fields = ['name', 'description', 'technical_specs', 'additional_info']
 
 class TeamSerializer(serializers.ModelSerializer):
-    video = serializers.FileField(required=False)  # ✅ Видео как файл (но сохранять будем ссылку)
-    members = TeamMemberSerializer(many=True)
-    project = ProjectSerializer()
+    video = serializers.FileField(required=False)
+    members = serializers.CharField(write_only=True)
+    project = serializers.CharField(write_only=True)
 
     class Meta:
         model = Team
-        fields = '__all__'
+        fields = "__all__"
 
     def create(self, validated_data):
-        members_data = validated_data.pop('members')
-        project_data = validated_data.pop('project')
-        video_file = validated_data.pop('video', None)  # ✅ Получаем видео
+        members_data = json.loads(validated_data.pop("members"))
+        project_data = json.loads(validated_data.pop("project"))
+        video_file = validated_data.pop("video", None)
 
+        # Create team instance
         team = Team.objects.create(**validated_data)
 
+        # Create team members
         for member in members_data:
             TeamMember.objects.create(team=team, **member)
 
-        project = Project.objects.create(team=team, **project_data)
+        # Create project
+        Project.objects.create(team=team, **project_data)
 
-        # ✅ Загружаем видео в Telegram и получаем ссылку
-        video_url = None
+        # Upload video to Telegram and get file_id
+        file_id = None
         if video_file:
-            video_url = upload_video_to_telegram(video_file)
+            file_id = upload_file_to_telegram(video_file)
+            if file_id:
+                team.video = file_id  # Store file_id if field exists
+                team.save()
 
-        # ✅ Отправляем сообщение в Telegram
+        # Send team info to Telegram
         try:
             send_telegram_message({
                 "name": team.name,
@@ -47,13 +54,8 @@ class TeamSerializer(serializers.ModelSerializer):
                 "contact_info": team.contact_info,
                 "members": members_data,
                 "project": project_data
-            }, video_url)
+            })
         except Exception as e:
-            print(f"⚠️ Ошибка при отправке в Telegram: {e}")
-
-        # ✅ Сохраняем в базе не сам файл, а ссылку на видео
-        if video_url:
-            team.video = video_url
-            team.save()
+            print(f"⚠️ Error sending to Telegram: {e}")
 
         return team
